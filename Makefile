@@ -15,7 +15,7 @@ include $(TOP)/Make.default		# Project default rules
 all:: disk.img
 
 # assume that there will be one .com file that is built for each .asm file
-SRC=$(wildcard nhacp/*.asm)
+SRC=$(wildcard nt/*.asm)
 PROGS=$(SRC:%.asm=%.com)
 PROG_DIRS=$(dir $(PROGS))
 
