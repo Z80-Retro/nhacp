@@ -18,27 +18,18 @@
 
 #include "crc.h"
 
+uint8_t* tv[] = {
+	"The quick brown fox jumps over the lazy dog.",
+	"NABU HCCA application communication protocol"
+};
 
-void
-main(void)
+int main(void)
 {
-	unsigned char  test[] = "123456789";
-
-
-	/*
-	 * Print the check value for the selected CRC algorithm.
-	 */
-	printf("The check value for the %s standard is 0x%X\n", CRC_NAME, CHECK_VALUE);
-	
-	/*
-	 * Compute the CRC of the test message, slowly.
-	 */
-	printf("The crcSlow() of \"123456789\" is 0x%X\n", crcSlow(test, strlen(test)));
-	
-	/*
-	 * Compute the CRC of the test message, more efficiently.
-	 */
-	crcInit();
-	printf("The crcFast() of \"123456789\" is 0x%X\n", crcFast(test, strlen(test)));
-
-}   /* main() */
+	for (int i=0; i<sizeof(tv)/sizeof(tv[0]); ++i) {
+		printf("The check value for the %s standard is 0x%X\n", CRC_NAME, CHECK_VALUE);
+		printf("The crcSlow() of \"%s\" is 0x%X\n", tv[i], crcSlow(tv[i], strlen(tv[i])));
+		crcInit();
+		printf("The crcFast() of \"%s\" is 0x%X\n", tv[i], crcFast(tv[i], strlen(tv[i])));
+	}
+	return 0;
+}

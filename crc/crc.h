@@ -23,7 +23,7 @@
 /*
  * Select the CRC standard from the list that follows.
  */
-#define CRC_CCITT
+#define CRC_8
 
 
 #if defined(CRC_CCITT)
@@ -62,9 +62,22 @@ typedef unsigned long  crc;
 #define REFLECT_REMAINDER	TRUE
 #define CHECK_VALUE			0xCBF43926
 
+#elif defined(CRC_8)
+
+#include <stdint.h>
+typedef uint8_t crc;
+
+#define CRC_NAME			"CRC-8/WCDMA"
+#define POLYNOMIAL			0x9b
+#define INITIAL_REMAINDER	0x00
+#define FINAL_XOR_VALUE		0x0000
+#define REFLECT_DATA		TRUE
+#define REFLECT_REMAINDER	TRUE
+#define CHECK_VALUE			0x25
+
 #else
 
-#error "One of CRC_CCITT, CRC16, or CRC32 must be #define'd."
+#error "One of CRC_8, CRC_CCITT, CRC16, or CRC32 must be #define'd."
 
 #endif
 
