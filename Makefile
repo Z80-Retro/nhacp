@@ -1,5 +1,7 @@
 TOP=.
 
+all::
+
 SUBDIRS=\
 	util
 
