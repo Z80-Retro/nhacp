@@ -123,7 +123,7 @@ struct res_session_started {
 	uint8_t		session_id;	// 0x00
 	uint16_t	version;	// 0x0001
 	uint8_t		slen;		// 0x10
-	uint8_t		str[];		// "NABU-ADAPTOR-1.1"
+	uint8_t		str[16];	// "NABU-ADAPTOR-1.1"
 };
 #pragma pack()
 
@@ -208,14 +208,12 @@ struct res_error {
 #pragma pack(1)
 struct msg {
 	struct {
-		uint8_t		session;
 		uint8_t		req;
+		uint8_t		session;
 		uint16_t	mlen;
 		uint8_t		type;
 	} hdr;
-	struct {
-		char		buf[8192];
-	} body;
+	char			body[8192];
 };
 #pragma pack()
 
@@ -273,6 +271,8 @@ static int read_timeout(int fd, void *buf, size_t len)
 {
 	int numread = 0;	///< how many bytes we read in so far
 
+//DBG("entered. len=%zd\n", len);
+
 	// XXX Meh... Good enough.. Hardcode the timeout to 1 second.
 	struct timeval	tv = { .tv_sec = 1, .tv_usec = 0 };
 	fd_set  		fds;
@@ -283,11 +283,10 @@ static int read_timeout(int fd, void *buf, size_t len)
 		FD_ZERO(&fds);
 		FD_SET(fd, &fds);
 		int rc = select(fd+1, &fds, NULL, NULL, &tv);
-
-		if (rc == -1) {
+		if (rc == -1) {			// select error
 			perror("select()");
 			return -1;
-		} else if (rc) {
+		} else if (rc) {		// data is ready
 			rc = read(fd, &p[numread], len-numread);
 			if (rc == -1) {
 				perror("read");
@@ -298,15 +297,15 @@ static int read_timeout(int fd, void *buf, size_t len)
 				numread += rc;
 			}
 		} else {
-			return 0;
+			return 0;	// timeout
 		}
 
 		// XXX if not on linux, need to reset the timeout value here
 	}
 
-#if 1
+#if 0
 	DBG("RX:\n");
-	hexdump((char*)&buf, sizeof(numread));
+	hexdump((char*)buf, numread);
 #endif
 
 	return numread;
@@ -329,38 +328,38 @@ static int read_req(int fd, struct msg *msg)
 
 	// read and discard bytes until we receive a 0x8f
 	while(msg->hdr.req != 0x8f) {
-		if (read_timeout(fd, &msg->hdr.req, 1) == 1) {
+		if (read_timeout(fd, &msg->hdr.req, 1) == 0) {
 			printf(".");
 			fflush(stdout);
 		}
 	}
 
 	// read the rest of the message header
-	if ((rc = read_timeout(fd, &msg->hdr.session, sizeof(msg->hdr)-1)) != 0) {
+	if ((rc = read_timeout(fd, &msg->hdr.session, sizeof(msg->hdr)-1)) <= 0) {
 		return rc;
 	}
-	len += rc;
+	len += rc+1;
 
+	// XXX length here is off
 	if ( msg->hdr.mlen > sizeof(struct msg) ) {
 		return -1;		// illegal too big message
 	}
 
 	// read the message body
-	if ((rc = read_timeout(fd, &msg->body, msg->hdr.mlen)) != 0) {
+	// XXX msg->hdr.mlen is a hack, assume on little-endian host ;-)
+	if ((rc = read_timeout(fd, msg->body, msg->hdr.mlen-1)) <= 0) {
 		return rc;
 	}
 	len += rc;
 
 #if 1
 	printf("read_req():\n");
-	hexdump((char*)&msg, len);
+	hexdump((char*)msg, len);
 #endif
 
 	return len;
 }
 
-
-// state = wait_hello, conneted,...
 
 /**
 *****************************************************************************/
@@ -376,13 +375,33 @@ static int send_error(int fd, int err)
 
 /**
 *****************************************************************************/
+static int send_session_started(int fd, int session_id, int version)
+{
+	struct res_session_started res = {
+		.mlen = 0x15,
+		.type = 0x80,
+		.session_id = session_id,
+		.version = version,
+		.slen = 0x10
+	};
+	strncpy(res.str, "NABU-ADAPTOR-1.1");
+
+	// XXX this is unreliable, 
+	write(fd, &res, sizeof(res));
+
+	
+	return 0;
+}
+
+/**
+*****************************************************************************/
 static int process_hello(int fd, struct req_hello* msg)
 {
 	DBG("entered\n");
 
-	// close any open files
-	// res_session_started(fd, 0);
-	return 0;
+	// XXX close any open files
+
+	return send_session_started(fd, 1, "NABU-ADAPTOR-1.1");
 }
 
 /**

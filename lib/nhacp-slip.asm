@@ -27,6 +27,19 @@
 
 .nhacp_debug:         equ     1
 
+if 1
+.SOM:		equ	's'
+.EOM:		equ	'e'
+.ESC:		equ	'1'
+else
+.SOM:		equ	0xcb
+.EOM:		equ	0xc0
+.ESC:		equ	0xdb
+endif
+.ESC_SOM:	equ	.SOM+1
+.ESC_EOM:	equ	.EOM+1
+.ESC_ESC:	equ	.ESC+1
+
 ;****************************************************************************
 ;****************************************************************************
 nhacp_init:
@@ -44,31 +57,23 @@ endif
 ;****************************************************************************
 nhacp_start:
 	ld	hl,.msg_start
-	ld	b,.msg_start_len
+	ld	bc,.msg_start_len
 	call	nhacp_tx_msg
-
-	ret
-
 	ld	hl,.nhacp_buf
-	ld	b,.nhacp_buf_len
+	ld	bc,.nhacp_buf_len
 	call	nhacp_rx_msg
 
 	;XXX check response here
 
-	ld	hl,.nhacp_buf
-	ld	bc,.nhacp_buf_len
-	ld	e,1
-	call	hexdump
 	ret
-
 .msg_start:
-	db	0x8f,0x00,0x08,0x00,0x00,'A','C','P',0x01,0x00,0x00,0x00
+	db	0x8f,'A','C','P',0x01,0x00
 .msg_start_len:	equ	$-.msg_start
 
-	ds	0x100-(($+0x100)&0x0ff) ; align for EZ-dump display
+
 .nhacp_buf:
-	ds	0x100	
-.nhacp_buf_len:	equ	($-.nhacp_buf)&0x0ff
+	ds	256
+.nhacp_buf_len:	equ	$-.nhacp_buf
 
 ;****************************************************************************
 ;****************************************************************************
@@ -81,93 +86,6 @@ nhacp_stg_open:
 nhacp_stg_close:
 	ld	a,0	; OK
 	ret
-
-;****************************************************************************
-; type 	u8 	0x08
-; index 	u8 	Storage slot to access
-; block-number 	u32 	0-based index of block to access
-; block-length 	u16 	Length of the block
-;****************************************************************************
-nhacp_put_blk:
-	ld	a,1	; A = 1 = error
-	ret
-
-
-
-
-
-;****************************************************************************
-; Send the given buffer 
-;
-; Parameters:
-;  HL = buff to send
-;  B  = number of bytes to write (0=256)
-;****************************************************************************
-nhacp_tx_msg:
-.tx_msg_loop:
-	ld	c,(hl)
-	call	siob_tx_char
-	inc	hl
-	djnz	.tx_msg_loop
-	ret
-
-
-;****************************************************************************
-; Read a response message into the given buffer 
-;
-; Parameters:
-;  HL = buff to fill
-;  B  = max number of bytes to write (0=256)
-;
-; XXX needs a timeout
-;****************************************************************************
-nhacp_rx_msg:
-	; discard until receive 0x8f
-	call	siob_rx_char
-	cp	0x8f
-	jp	nz,nhacp_rx_msg
-
-	; read uint8_t session ID
-	call	siob_rx_char
-	ld	(hl),a
-	inc	hl
-
-	; read uint16_t length
-	call	siob_rx_char	; LSB
-	ld	(hl),a
-	inc	hl
-	ld	b,a		; XXX just read LSB number of bytes
-
-	call	siob_rx_char	; MSB
-	ld	(hl),a		; XXX if this is not zero then fail
-	inc	hl
-
-.rx_msg_loop:
-	; read length number of bytes here (limit to bufer size)
-	call	siob_rx_char
-	ld	(hl),a
-	inc	hl
-	djnz	.rx_msg_loop
-
-	ret
-
-
-
-
-
-
-
-;****************************************************************************
-;****************************************************************************
-;****************************************************************************
-;****************************************************************************
-;****************************************************************************
-;****************************************************************************
-
-
-
-
-if 0
 
 ;****************************************************************************
 ; Send a STORAGE-GET-BLOCK message
@@ -202,6 +120,68 @@ nhacp_get_blk:
 .get_blk_len:
 	dw	128	; all blocks on the Retro are 128 bytes 
 
+
+;****************************************************************************
+; type 	u8 	0x08
+; index 	u8 	Storage slot to access
+; block-number 	u32 	0-based index of block to access
+; block-length 	u16 	Length of the block
+;****************************************************************************
+nhacp_put_blk:
+	ld	a,1	; A = 1 = error
+	ret
+
+
+;****************************************************************************
+; Write one character
+; A = character to send
+;****************************************************************************
+nhacp_tx_ch:
+	cp	.SOM
+	jr	z,.tx_som
+	cp	.EOM
+	jr	z,.tx_eom
+	cp	.ESC
+	jr	z,.tx_esc
+	ld	c,a
+.tx_loop:
+	call	siob_tx_char
+	ret
+.tx_som:
+	ld	c,.ESC
+	call	siob_tx_char
+	ld	c,.ESC_SOM
+	jp	.tx_loop
+.tx_eom:
+	ld	c,.ESC
+	call	siob_tx_char
+	ld	c,.ESC_EOM
+	jp	.tx_loop
+.tx_esc:
+	ld	c,.ESC
+	call	siob_tx_char
+	ld	c,.ESC_ESC
+	jp	.tx_loop
+
+
+;****************************************************************************
+; Send the given buffer with EOM framing bytes around it.
+;
+; Parameters:
+;  HL = buff to send
+;  B  = number of bytes to write
+;****************************************************************************
+nhacp_tx_msg:
+	ld	c,.SOM
+	call	siob_tx_char	; write without escaping
+.tx_msg_loop:
+	ld	a,(hl)
+	call	nhacp_tx_ch
+	inc	hl
+	djnz	.tx_msg_loop
+	ld	c,.EOM
+	call	siob_tx_char	; write without escaping
+	ret
 
 
 ;****************************************************************************
@@ -347,4 +327,3 @@ nhacp_rx_msg:
 	or	a
 	ret
 
-endif
