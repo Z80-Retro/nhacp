@@ -8,10 +8,12 @@
 //****************************************************************************
 
 #include <termios.h>
-
+#include <unistd.h>
 
 void setControlLines(int port, int dtr, int rts);
 void initPort(int p, speed_t speed);
 int readChar(int port);
 void sendChar(int port, char ch);
 void doStream(int port);
+ssize_t safeWrite(int fd, void *buf, size_t len);
+

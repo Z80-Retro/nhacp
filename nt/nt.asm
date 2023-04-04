@@ -31,87 +31,24 @@
 	call	iputs
 	db	"ready...\r\n\0"
 
-
 .loop:
-	call	iputs
-	db	"TX..\r\n\0"
 	call	nhacp_start
 	call	delay1
 	jp	.loop
 
-
-
 delay1:
+	ld	b,0x08
+.dloop1:
 	ld	hl,0
 .dloop:
 	dec	hl
 	ld	a,h
 	or	l
 	jp	nz,.dloop
+	djnz	.dloop1
 	ret
 
 
-
-
-;.loop:
-;	ld	hl,0x1234
-;	ld	de,.buf
-;	xor	a
-;	call	nhacp_get_blk
-;
-;	call	iputs
-;	db	"RX block:\r\n\0"
-;
-;	ld	hl,.buf
-;	ld	bc,128
-;	ld	e,1
-;	call	hexdump
-;
-;	jp	.loop
-
-
-
-;if 0
-;
-;if 0
-;	ld	hl,.buf
-;	ld	b,0		; B = 256 max bytes to read into the buffer
-;	call	nhacp_rx_msg
-;endif
-;	; DE points to first unused byte in the buffer
-;	; if CY is set then there has been an error
-;
-;	jp	nc,.good_msg
-;	call	iputs		; clobbers AF and C
-;	db	"error detected :-(\r\n\0"
-;	
-;.good_msg:
-;
-;if 0
-;	ld	a,e
-;	or	a
-;	jp	nz,.nz_msg
-;        ld      c,'.'
-;        call    con_tx_char
-;	jp	.loop
-;endif
-;
-;.nz_msg:
-;	call	iputs
-;	db	"Length=\0"
-;	ld	a,e		; LSB of the nhacp_get_blk length is good enough
-;	call	hexdump_a
-;
-;	call	iputs
-;	db	"\r\nmessage:\r\n\0"
-;
-;	ld	hl,.buf
-;	ld	bc,256
-;	ld	e,1
-;	call	hexdump
-;	
-;	jp	.loop
-;endif
 
 include 'io.asm'
 include 'puts.asm'

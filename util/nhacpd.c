@@ -31,6 +31,7 @@
 #include "hexdump.h"
 #include "dbg.h"
 
+#include <assert.h>
 #include <sys/select.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -38,6 +39,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <string.h>
 
 
 //****************************************************************************
@@ -375,21 +377,22 @@ static int send_error(int fd, int err)
 
 /**
 *****************************************************************************/
-static int send_session_started(int fd, int session_id, int version)
+static int send_session_started(int fd, int session_id)
 {
 	struct res_session_started res = {
-		.mlen = 0x15,
+		.mlen =0x15,
 		.type = 0x80,
 		.session_id = session_id,
-		.version = version,
-		.slen = 0x10
+		.version = 0x0001,
+		.slen = 0x10,
+		.str = "NABU-ADAPTOR-1.1"
 	};
-	strncpy(res.str, "NABU-ADAPTOR-1.1");
 
-	// XXX this is unreliable, 
-	write(fd, &res, sizeof(res));
+	DBG("RX:\n");
+	hexdump((char*)&res, sizeof(res));
 
-	
+	assert(safeWrite(fd, &res, sizeof(res)) == 0);
+
 	return 0;
 }
 
@@ -401,7 +404,7 @@ static int process_hello(int fd, struct req_hello* msg)
 
 	// XXX close any open files
 
-	return send_session_started(fd, 1, "NABU-ADAPTOR-1.1");
+	return send_session_started(fd, 0);
 }
 
 /**

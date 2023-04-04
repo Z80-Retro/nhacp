@@ -42,6 +42,30 @@
 //#define DEBUG_IO
 
 /**
+* A write function that makes sure that all the fragments are sent
+* before it returns.
+*
+* @return <0 if an error occurred, 0 success
+*****************************************************************************/
+ssize_t safeWrite(int fd, void *buf, size_t len)
+{
+    ssize_t stat;
+    const char *b = buf;	// b = next position to begin writing
+    ssize_t l = len;		// l = residual amount to send
+    while (l > 0)
+    {
+        stat = write(fd, b, l);		// send as much as we can
+        if (stat == -1)
+            return(-1);		// write() failed
+        l -= stat;			// account for the number of bytes sent
+        b += stat;			// advance the buffer pointer
+    }
+    return(l);
+}
+
+
+
+/**
 *****************************************************************************/
 void setControlLines(int port, int dtr, int rts)
 {

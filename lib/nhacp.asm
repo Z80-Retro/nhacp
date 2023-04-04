@@ -32,7 +32,7 @@
 nhacp_init:
 if .nhacp_debug >= 1
         call    iputs
-        db      "rw_init entered\r\n\0"
+        db      "nhacp_init entered\r\n\0"
 endif
 	call	siob_init
 	ret
@@ -43,22 +43,37 @@ endif
 ; version 	u16 	Version number of the protocol
 ;****************************************************************************
 nhacp_start:
+if 1
+	call	iputs
+	db	"TX:\r\n\0"
+	ld	hl,.msg_start
+	ld	bc,.msg_start_len
+	ld	e,1
+	call	hexdump
+endif
+
 	ld	hl,.msg_start
 	ld	b,.msg_start_len
 	call	nhacp_tx_msg
 
-	ret
-
 	ld	hl,.nhacp_buf
-	ld	b,.nhacp_buf_len
+	ld	b,.nhacp_buf_len&0x0ff
 	call	nhacp_rx_msg
 
 	;XXX check response here
 
+if 1
+	call	iputs
+	db	"RX:\r\n\0"
 	ld	hl,.nhacp_buf
-	ld	bc,.nhacp_buf_len
+	; ld	bc,.nhacp_buf_len
+	ld	bc,(.nhacp_buf)		; first word in the message /should/ be its length
+	inc	bc
+	inc	bc			; ...plus the length of the length
 	ld	e,1
 	call	hexdump
+endif
+
 	ret
 
 .msg_start:
@@ -68,7 +83,7 @@ nhacp_start:
 	ds	0x100-(($+0x100)&0x0ff) ; align for EZ-dump display
 .nhacp_buf:
 	ds	0x100	
-.nhacp_buf_len:	equ	($-.nhacp_buf)&0x0ff
+.nhacp_buf_len:	equ	$-.nhacp_buf
 
 ;****************************************************************************
 ;****************************************************************************
@@ -122,16 +137,6 @@ nhacp_tx_msg:
 ; XXX needs a timeout
 ;****************************************************************************
 nhacp_rx_msg:
-	; discard until receive 0x8f
-	call	siob_rx_char
-	cp	0x8f
-	jp	nz,nhacp_rx_msg
-
-	; read uint8_t session ID
-	call	siob_rx_char
-	ld	(hl),a
-	inc	hl
-
 	; read uint16_t length
 	call	siob_rx_char	; LSB
 	ld	(hl),a
@@ -259,11 +264,11 @@ endif
 ;of the two you got.
 
 
-nhacp_rx_msg:
+Xhacp_rx_msg:
 	call	nhacp_rx_ch		; read a character
 	ret	c			; timeout, CY = 1
 	cp	.SOM			; of A == .SOM then we can start reading message data
-	jr	nz,nhacp_rx_msg		; discard the garbage byte
+	jr	nz,Xhacp_rx_msg		; discard the garbage byte
 
 .nhacp_rx_loop:
 	call	nhacp_rx_ch		; read a character
